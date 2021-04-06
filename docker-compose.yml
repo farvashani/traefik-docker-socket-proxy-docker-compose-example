@@ -5,6 +5,7 @@ services:
                 image: tecnativa/docker-socket-proxy
                 container_name: socket-proxy
                 restart: unless-stopped
+                privileged: true
                 networks:
                         - proxy
                 environment:
@@ -17,25 +18,24 @@ services:
                 container_name: traefik
                 restart: unless-stopped
                 command:
+                        - "--api.insecure=true"
                         - --providers.docker=true
                         - --providers.docker.endpoint=tcp://socket-proxy:2375
                         - --providers.docker.exposedbydefault=false
                         - --entrypoints.web.address=:80
                         - --entrypoints.websecure.address=:443
                         - --certificatesresolvers.myresolver.acme.httpchallenge=true
+                        - "--certificatesResolvers.le.acme.tlsChallenge=true"
                         - --certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web
                         - --certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}
                         - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
 
                 labels:
-                        - traefik.enable=true
-                        - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-                        - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
-                        - traefik.http.middlewares.redirect-to-https.redirectscheme.port=443
-                        - traefik.http.routers.router1.rule=HostRegexp(`{subdomain:[a-z]+}.${TRAE_DOMAIN_NAME}`)
-                        - traefik.http.routers.router1.entrypoints=web
-                        - traefik.http.routers.router1.middlewares=redirect-to-https
-
+                        - traefik.http.routers.http_catchall.rule=HostRegexp(`{any:.+}`)
+                        - traefik.http.routers.http_catchall.entrypoints=web
+                        - traefik.http.routers.http_catchall.middlewares=https_redirect
+                        - traefik.http.middlewares.https_redirect.redirectscheme.scheme=https
+                        - traefik.http.middlewares.https_redirect.redirectscheme.permanent=true
 
                 volumes:
                         - ./letsencrypt:/letsencrypt
